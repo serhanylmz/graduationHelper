@@ -190,7 +190,7 @@
 
             const updateRequirements = () => {
                 setCurrentRequirements(prevRequirements => {
-                    const updatedRequirements = [...baseRequirements];
+                    const updatedRequirements = baseRequirements.map(req => ({...req, completed: 0}));
                     courses.forEach(course => {
                         updatedRequirements.forEach(req => {
                             if (req.name === 'Total SU Credits') req.completed += Number(course.suCredits);
