@@ -106,6 +106,38 @@
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 15px;
         }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 600px;
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -126,8 +158,15 @@
         ];
 
         function GraduationHelper() {
-            const [requirements, setRequirements] = useState(initialRequirements);
-            const [courses, setCourses] = useState([]);
+            const [baseRequirements, setBaseRequirements] = useState(() => {
+                const savedRequirements = localStorage.getItem('baseRequirements');
+                return savedRequirements ? JSON.parse(savedRequirements) : initialRequirements;
+            });
+            const [currentRequirements, setCurrentRequirements] = useState([...baseRequirements]);
+            const [courses, setCourses] = useState(() => {
+                const savedCourses = localStorage.getItem('courses');
+                return savedCourses ? JSON.parse(savedCourses) : [];
+            });
             const [newCourse, setNewCourse] = useState({
                 name: '',
                 type: '',
@@ -141,31 +180,28 @@
             const [showSetup, setShowSetup] = useState(false);
 
             useEffect(() => {
-                const savedRequirements = localStorage.getItem('requirements');
-                const savedCourses = localStorage.getItem('courses');
-                if (savedRequirements) setRequirements(JSON.parse(savedRequirements));
-                if (savedCourses) setCourses(JSON.parse(savedCourses));
-            }, []);
+                localStorage.setItem('baseRequirements', JSON.stringify(baseRequirements));
+            }, [baseRequirements]);
 
             useEffect(() => {
-                localStorage.setItem('requirements', JSON.stringify(requirements));
                 localStorage.setItem('courses', JSON.stringify(courses));
                 updateRequirements();
             }, [courses]);
 
             const updateRequirements = () => {
-                const updatedRequirements = requirements.map(req => {
-                    let completed = 0;
+                setCurrentRequirements(prevRequirements => {
+                    const updatedRequirements = [...baseRequirements];
                     courses.forEach(course => {
-                        if (req.name === 'Total SU Credits') completed += Number(course.suCredits);
-                        else if (req.name === 'Total ECTS Credits') completed += Number(course.ectsCredits);
-                        else if (req.name === 'Engineering') completed += Number(course.engineeringECTS);
-                        else if (req.name === 'Basic Science') completed += Number(course.basicScienceECTS);
-                        else if (req.name === course.type) completed += Number(course.suCredits);
+                        updatedRequirements.forEach(req => {
+                            if (req.name === 'Total SU Credits') req.completed += Number(course.suCredits);
+                            else if (req.name === 'Total ECTS Credits') req.completed += Number(course.ectsCredits);
+                            else if (req.name === 'Engineering') req.completed += Number(course.engineeringECTS);
+                            else if (req.name === 'Basic Science') req.completed += Number(course.basicScienceECTS);
+                            else if (req.name === course.type) req.completed += Number(course.suCredits);
+                        });
                     });
-                    return { ...req, completed };
+                    return updatedRequirements;
                 });
-                setRequirements(updatedRequirements);
             };
 
             const handleInputChange = (e) => {
@@ -177,14 +213,26 @@
             };
 
             const handleSetupChange = (index, field, value) => {
-                const updatedRequirements = [...requirements];
+                const updatedRequirements = [...baseRequirements];
                 updatedRequirements[index][field] = value === '' ? '' : Number(value);
-                setRequirements(updatedRequirements);
+                setBaseRequirements(updatedRequirements);
+            };
+
+            const saveSetup = () => {
+                localStorage.setItem('baseRequirements', JSON.stringify(baseRequirements));
+                setCurrentRequirements([...baseRequirements]);
+                setShowSetup(false);
+                updateRequirements();
             };
 
             const resetSetup = () => {
-                setRequirements(initialRequirements.map(req => ({...req, completed: 0})));
-                setCourses([]);
+                const confirmReset = window.confirm('Are you sure you want to reset the setup? This will clear all courses and requirements.');
+                if (confirmReset) {
+                    localStorage.clear();
+                    setBaseRequirements(initialRequirements);
+                    setCurrentRequirements([...initialRequirements]);
+                    setCourses([]);
+                }
             };
 
             const addCourse = () => {
@@ -213,9 +261,11 @@
             };
 
             const updateCourse = () => {
-                const updatedCourses = [...courses];
-                updatedCourses[editingCourse] = newCourse;
-                setCourses(updatedCourses);
+                setCourses(prevCourses => {
+                    const updatedCourses = [...prevCourses];
+                    updatedCourses[editingCourse] = newCourse;
+                    return updatedCourses;
+                });
                 setEditingCourse(null);
                 setNewCourse({
                     name: '',
@@ -268,33 +318,35 @@
                 <div className="container">
                     <h1>Graduation Evaluation Helper</h1>
                     
-                    <button onClick={() => setShowSetup(!showSetup)}>
-                        {showSetup ? 'Hide Setup' : 'Show Setup'}
-                    </button>
-                    <button onClick={resetSetup}>Reset Setup</button>
+                    <button onClick={() => setShowSetup(true)}>Open Setup</button>
+                    <button onClick={resetSetup}>Reset All</button>
                     
                     {showSetup && (
-                        <div>
-                            <h2>Setup</h2>
-                            {requirements.map((req, index) => (
-                                <div key={index} className="setup-input">
-                                    <span>{req.name}:</span>
-                                    <input
-                                        type="number"
-                                        value={req.completed}
-                                        onChange={(e) => handleSetupChange(index, 'completed', e.target.value)}
-                                        placeholder="Completed Credits"
-                                    />
-                                    <span>/</span>
-                                    <input
-                                        type="number"
-                                        value={req.required}
-                                        onChange={(e) => handleSetupChange(index, 'required', e.target.value)}
-                                        placeholder="Required Credits"
-                                    />
-                                    <span>{req.unit}</span>
-                                </div>
-                            ))}
+                        <div className="modal" style={{display: 'block'}}>
+                            <div className="modal-content">
+                                <span className="close" onClick={() => setShowSetup(false)}>&times;</span>
+                                <h2>Setup</h2>
+                                {baseRequirements.map((req, index) => (
+                                    <div key={index} className="setup-input">
+                                        <span>{req.name}:</span>
+                                        <input
+                                            type="number"
+                                            value={req.completed}
+                                            onChange={(e) => handleSetupChange(index, 'completed', e.target.value)}
+                                            placeholder="Completed Credits"
+                                        />
+                                        <span>/</span>
+                                        <input
+                                            type="number"
+                                            value={req.required}
+                                            onChange={(e) => handleSetupChange(index, 'required', e.target.value)}
+                                            placeholder="Required Credits"
+                                        />
+                                        <span>{req.unit}</span>
+                                    </div>
+                                ))}
+                                <button onClick={saveSetup}>Save Setup</button>
+                            </div>
                         </div>
                     )}
 
@@ -333,7 +385,7 @@
 
                     <h2>Requirements Progress</h2>
                     <div className="requirements-grid">
-                        {requirements.map(req => (
+                        {currentRequirements.map(req => (
                             <div key={req.name} className="requirement">
                                 <div className="requirement-info">
                                     <span className="requirement-name">{req.name}</span>
