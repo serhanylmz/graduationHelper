@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Graduation Helper</title>
+    <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .progress-bar {
+            background-color: #e0e0e0;
+            height: 10px;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-top: 5px;
+            flex-grow: 1;
+        }
+        .progress {
+            background-color: #4CAF50;
+            height: 100%;
+        }
+        .term-section {
+            margin-bottom: 2rem;
+        }
+        .action-icons i {
+            cursor: pointer;
+            margin-left: 5px;
+        }
+        .action-icons i:hover {
+            color: #4CAF50;
+        }
+        .setup-input {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .setup-input input {
+            width: 50px;
+            margin: 0 5px;
+        }
+        input, select, button {
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-right: 10px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .requirement {
+            display: flex;
+            align-items: center;
+            background-color: #f9f9f9;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+        .requirement-info {
+            flex: 1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-right: 10px;
+        }
+        .requirement-name {
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        .requirement-status {
+            display: flex;
+            align-items: center;
+        }
+        .requirement-status i {
+            margin-right: 5px;
+        }
+        .action-icons {
+            white-space: nowrap;
+        }
+        .requirements-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const initialRequirements = [
+            { name: 'Required courses', required: 29, completed: 0, unit: 'SU' },
+            { name: 'Core electives', required: 31, completed: 0, unit: 'SU' },
+            { name: 'Area electives', required: 9, completed: 0, unit: 'SU' },
+            { name: 'Free electives', required: 15, completed: 0, unit: 'SU' },
+            { name: 'Engineering', required: 90, completed: 0, unit: 'ECTS' },
+            { name: 'Basic Science', required: 60, completed: 0, unit: 'ECTS' },
+            { name: 'Total SU Credits', required: 125, completed: 0, unit: 'SU' },
+            { name: 'Total ECTS Credits', required: 240, completed: 0, unit: 'ECTS' },
+        ];
+
+        function GraduationHelper() {
+            const [requirements, setRequirements] = useState(initialRequirements);
+            const [courses, setCourses] = useState([]);
+            const [newCourse, setNewCourse] = useState({
+                name: '',
+                type: '',
+                engineeringECTS: '',
+                basicScienceECTS: '',
+                suCredits: '',
+                ectsCredits: '',
+                term: 'Fall 2024-2025'
+            });
+            const [editingCourse, setEditingCourse] = useState(null);
+            const [showSetup, setShowSetup] = useState(false);
+
+            useEffect(() => {
+                const savedRequirements = localStorage.getItem('requirements');
+                const savedCourses = localStorage.getItem('courses');
+                if (savedRequirements) setRequirements(JSON.parse(savedRequirements));
+                if (savedCourses) setCourses(JSON.parse(savedCourses));
+            }, []);
+
+            useEffect(() => {
+                localStorage.setItem('requirements', JSON.stringify(requirements));
+                localStorage.setItem('courses', JSON.stringify(courses));
+                updateRequirements();
+            }, [courses]);
+
+            const updateRequirements = () => {
+                const updatedRequirements = requirements.map(req => {
+                    let completed = 0;
+                    courses.forEach(course => {
+                        if (req.name === 'Total SU Credits') completed += Number(course.suCredits);
+                        else if (req.name === 'Total ECTS Credits') completed += Number(course.ectsCredits);
+                        else if (req.name === 'Engineering') completed += Number(course.engineeringECTS);
+                        else if (req.name === 'Basic Science') completed += Number(course.basicScienceECTS);
+                        else if (req.name === course.type) completed += Number(course.suCredits);
+                    });
+                    return { ...req, completed };
+                });
+                setRequirements(updatedRequirements);
+            };
+
+            const handleInputChange = (e) => {
+                const { name, value } = e.target;
+                setNewCourse(prevState => ({
+                    ...prevState,
+                    [name]: value
+                }));
+            };
+
+            const handleSetupChange = (index, field, value) => {
+                const updatedRequirements = [...requirements];
+                updatedRequirements[index][field] = value === '' ? '' : Number(value);
+                setRequirements(updatedRequirements);
+            };
+
+            const resetSetup = () => {
+                setRequirements(initialRequirements.map(req => ({...req, completed: 0})));
+                setCourses([]);
+            };
+
+            const addCourse = () => {
+                const courseToAdd = {
+                    ...newCourse,
+                    engineeringECTS: Number(newCourse.engineeringECTS) || 0,
+                    basicScienceECTS: Number(newCourse.basicScienceECTS) || 0,
+                    suCredits: Number(newCourse.suCredits) || 0,
+                    ectsCredits: Number(newCourse.ectsCredits) || 0
+                };
+                setCourses(prevCourses => [...prevCourses, courseToAdd]);
+                setNewCourse({
+                    name: '',
+                    type: '',
+                    engineeringECTS: '',
+                    basicScienceECTS: '',
+                    suCredits: '',
+                    ectsCredits: '',
+                    term: 'Fall 2024-2025'
+                });
+            };
+
+            const editCourse = (index) => {
+                setEditingCourse(index);
+                setNewCourse(courses[index]);
+            };
+
+            const updateCourse = () => {
+                const updatedCourses = [...courses];
+                updatedCourses[editingCourse] = newCourse;
+                setCourses(updatedCourses);
+                setEditingCourse(null);
+                setNewCourse({
+                    name: '',
+                    type: '',
+                    engineeringECTS: '',
+                    basicScienceECTS: '',
+                    suCredits: '',
+                    ectsCredits: '',
+                    term: 'Fall 2024-2025'
+                });
+            };
+
+            const removeCourse = (index) => {
+                setCourses(prevCourses => prevCourses.filter((_, i) => i !== index));
+            };
+
+            const renderCourseTable = (termCourses) => (
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Engineering ECTS</th>
+                            <th>Basic Science ECTS</th>
+                            <th>SU Credits</th>
+                            <th>ECTS Credits</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {termCourses.map((course, index) => (
+                            <tr key={index}>
+                                <td>{course.name}</td>
+                                <td>{course.type}</td>
+                                <td>{course.engineeringECTS}</td>
+                                <td>{course.basicScienceECTS}</td>
+                                <td>{course.suCredits}</td>
+                                <td>{course.ectsCredits}</td>
+                                <td className="action-icons">
+                                    <i className="fas fa-edit" onClick={() => editCourse(courses.indexOf(course))}></i>
+                                    <i className="fas fa-trash-alt" onClick={() => removeCourse(courses.indexOf(course))}></i>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            );
+
+            return (
+                <div className="container">
+                    <h1>Graduation Evaluation Helper</h1>
+                    
+                    <button onClick={() => setShowSetup(!showSetup)}>
+                        {showSetup ? 'Hide Setup' : 'Show Setup'}
+                    </button>
+                    <button onClick={resetSetup}>Reset Setup</button>
+                    
+                    {showSetup && (
+                        <div>
+                            <h2>Setup</h2>
+                            {requirements.map((req, index) => (
+                                <div key={index} className="setup-input">
+                                    <span>{req.name}:</span>
+                                    <input
+                                        type="number"
+                                        value={req.completed}
+                                        onChange={(e) => handleSetupChange(index, 'completed', e.target.value)}
+                                        placeholder="Completed Credits"
+                                    />
+                                    <span>/</span>
+                                    <input
+                                        type="number"
+                                        value={req.required}
+                                        onChange={(e) => handleSetupChange(index, 'required', e.target.value)}
+                                        placeholder="Required Credits"
+                                    />
+                                    <span>{req.unit}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    <h2>{editingCourse !== null ? 'Edit Course' : 'Add Course'}</h2>
+                    <input name="name" placeholder="Course Name" value={newCourse.name} onChange={handleInputChange} />
+                    <select name="type" value={newCourse.type} onChange={handleInputChange}>
+                        <option value="">Select Type</option>
+                        <option value="Required courses">Required</option>
+                        <option value="Core electives">Core</option>
+                        <option value="Area electives">Area</option>
+                        <option value="Free electives">Free</option>
+                    </select>
+                    <input type="number" name="engineeringECTS" placeholder="Engineering ECTS" value={newCourse.engineeringECTS} onChange={handleInputChange} />
+                    <input type="number" name="basicScienceECTS" placeholder="Basic Science ECTS" value={newCourse.basicScienceECTS} onChange={handleInputChange} />
+                    <input type="number" name="suCredits" placeholder="SU Credits" value={newCourse.suCredits} onChange={handleInputChange} />
+                    <input type="number" name="ectsCredits" placeholder="ECTS Credits" value={newCourse.ectsCredits} onChange={handleInputChange} />
+                    <select name="term" value={newCourse.term} onChange={handleInputChange}>
+                        <option value="Fall 2024-2025">Fall 2024-2025</option>
+                        <option value="Spring 2024-2025">Spring 2024-2025</option>
+                    </select>
+                    {editingCourse !== null ? (
+                        <button onClick={updateCourse}>Update Course</button>
+                    ) : (
+                        <button onClick={addCourse}>Add Course</button>
+                    )}
+                    
+                    <h2>Course List</h2>
+                    <div className="term-section">
+                        <h3>Fall 2024-2025</h3>
+                        {renderCourseTable(courses.filter(course => course.term === 'Fall 2024-2025'))}
+                    </div>
+                    <div className="term-section">
+                        <h3>Spring 2024-2025</h3>
+                        {renderCourseTable(courses.filter(course => course.term === 'Spring 2024-2025'))}
+                    </div>
+
+                    <h2>Requirements Progress</h2>
+                    <div className="requirements-grid">
+                        {requirements.map(req => (
+                            <div key={req.name} className="requirement">
+                                <div className="requirement-info">
+                                    <span className="requirement-name">{req.name}</span>
+                                    <span className="requirement-status">
+                                        {req.completed >= req.required ? (
+                                            <i className="fas fa-check" style={{color: 'green'}}></i>
+                                        ) : (
+                                            <i className="fas fa-times" style={{color: 'red'}}></i>
+                                        )}
+                                        {req.completed}/{req.required} {req.unit}
+                                    </span>
+                                </div>
+                                <div className="progress-bar">
+                                    <div className="progress" style={{width: `${Math.min(100, (req.completed / req.required) * 100)}%`}}></div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<GraduationHelper />, document.getElementById('root'));
+    </script>
+</body>
+</html>
