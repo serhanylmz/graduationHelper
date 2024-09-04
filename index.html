@@ -181,6 +181,8 @@
 
             useEffect(() => {
                 localStorage.setItem('baseRequirements', JSON.stringify(baseRequirements));
+                setCurrentRequirements([...baseRequirements]);
+                updateRequirements();
             }, [baseRequirements]);
 
             useEffect(() => {
@@ -190,7 +192,7 @@
 
             const updateRequirements = () => {
                 setCurrentRequirements(prevRequirements => {
-                    const updatedRequirements = baseRequirements.map(req => ({...req, completed: 0}));
+                    const updatedRequirements = baseRequirements.map(req => ({...req}));
                     courses.forEach(course => {
                         updatedRequirements.forEach(req => {
                             if (req.name === 'Total SU Credits') req.completed += Number(course.suCredits);
